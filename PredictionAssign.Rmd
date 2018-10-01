@@ -1,0 +1,68 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+
+
+```{r setup, include=FALSE}
+set.seed(42)
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Title
+### Practical Machine learning Course - Prediction Assignment Writeup
+##### Vijay Mahajanam
+
+### Overview:
+#### This document is the report of the Peer Assessment for Practical Machine Learning assignmet. The main goal of the project is to predict how well people perform personal activities(workouts). This is represented by the "classe" variable in the training set. Training set consists of data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. The prediction model built here aims to predict the "classe" variable which represents how well personal activities(workouts) is performed by an individual.
+
+### Background:
+#### Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, our goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).Read more: http://groupware.les.inf.puc-rio.br/har#ixzz3xsbS5bVX. I would like to thank the authors of this study Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013 for being graceful enough to allow the use of this study for further analysis and education
+
+### Load the required libraries:
+```{r,warning=FALSE}
+library(dplyr)
+library(caret)
+library(randomForest)
+```
+### Load and clean data:
+#### Load the training data file
+```{r}
+trainUrl <-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+trainFile <- "./training.csv"
+download.file(trainUrl, destfile=trainFile)
+```
+#### Clean the training data
+```{r}
+train <- read.csv("./pml-training.csv",na.strings=c("NA","#DIV/0!","")) #We convert the characters "NA",#DIV/0! and space which appear at number of observations in the file as NA
+x = sapply(train,is.na)
+nacount = colSums(x)
+trainnona = train[,nacount==0]
+variables <- c( "X", "user_name", "raw_timestamp_part_1", "raw_timestamp_part_2","cvtd_timestamp") #We want to eliminate the columns which are obviously not required for building prediction model
+trainnew <- trainnona[ , -which(names(train) %in% variables)]
+NZV = nearZeroVar(trainnew) #We now want to eliminate variables with near zero variance
+trainnew=trainnew[,-NZV]
+```
+#### Create a subset of training data to be used for building prediction model by taking 60% of the original training data
+```{r}
+forTrain <- createDataPartition(trainnew$classe, p=0.6,list = FALSE)
+train60 <- trainnew[forTrain,]
+```
+### Prediction Model Building
+#### Random Forests prediction model is selected as it is considered to predict more accurately in comparison to other models
+```{r}
+modelFit <- train(classe ~ ., data = train60, method="rf", importance=TRUE)
+```
+#### Prediction model observations
+```{r}
+modelFit
+```
+We observe that the prediction model built is about 99.4% accurate. 
+We now validate the model using validation data (remaining 40% of the original training data)
+```{r}
+train40 <- trainnew[-forTrain,]
+predicttest = predict(modelFit,train40)
+confusionMatrix(train40$classe, predicttest)
+oose <- 1 - as.numeric(confusionMatrix(train40$classe, predicttest)$overall[1])
+```
+We observe from the above summary that accuracy of prediction is 99.45% and estimated out-of-sample error is 0.55%
